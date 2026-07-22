@@ -310,26 +310,27 @@ export default function VocabularyManagement() {
           </div>
         </div>
 
-        {/* So'zlar jadvali */}
+        {/* So'zlar jadvali (overflow-x-auto orqali telefonlarda chapga-o'ngga surish imkoni saqlangan) */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center py-16 text-indigo-600 font-medium gap-2">
               <svg className="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              
               </svg>
               Ma'lumotlar yuklanmoqda...
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead>
                     <tr className="bg-gray-50/75 text-gray-500 uppercase text-xs tracking-wider border-b border-gray-100">
                       <th className="p-4 font-semibold">Ruscha so'z</th>
                       <th className="p-4 font-semibold">O'zbekcha ma'nosi</th>
-                      <th className="p-4 font-semibold">Turi / Darajasi</th>
+                      <th className="p-4 font-semibold">Turi</th>
+                      <th className="p-4 font-semibold">Daraja</th>
+                      <th className="p-4 font-semibold">Aspect</th>
                       <th className="p-4 font-semibold">Dars nomi</th>
                       <th className="p-4 font-semibold">Misol gap</th>
                       <th className="p-4 font-semibold text-center">Amallar</th>
@@ -338,23 +339,38 @@ export default function VocabularyManagement() {
                   <tbody className="text-sm text-gray-700 divide-y divide-gray-100">
                     {vocabularies.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="text-center py-12 text-gray-400 font-medium">Hech qanday so'z topilmadi.</td>
+                        <td colSpan="8" className="text-center py-12 text-gray-400 font-medium">Hech qanday so'z topilmadi.</td>
                       </tr>
                     ) : vocabularies.map((vocab) => (
                       <tr key={vocab.id} className="hover:bg-indigo-50/30 transition-colors">
-                        <td className="p-4 font-semibold text-gray-900">{vocab.russian_word}</td>
-                        <td className="p-4 text-gray-600">{vocab.uzbek_meaning}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">{vocab.word_type}</span>
-                            {vocab.word_level && (
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">{vocab.word_level}</span>
-                            )}
-                          </div>
+                        <td className="p-4 font-semibold text-gray-900 whitespace-nowrap">{vocab.russian_word}</td>
+                        <td className="p-4 text-gray-600 whitespace-nowrap">{vocab.uzbek_meaning}</td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                            {vocab.word_type || '-'}
+                          </span>
                         </td>
-                        <td className="p-4 text-gray-500 font-medium">{vocab.lesson_name || vocab.lessonName || '-'}</td>
+                        <td className="p-4 whitespace-nowrap">
+                          {vocab.word_level ? (
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                              {vocab.word_level}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          {vocab.aspect ? (
+                            <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                              {vocab.aspect}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-gray-500 font-medium whitespace-nowrap">{vocab.lesson_name || vocab.lessonName || '-'}</td>
                         <td className="p-4 max-w-xs truncate text-gray-500" title={vocab.example_sentence}>{vocab.example_sentence || '-'}</td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-3">
                             <button onClick={() => openEditModal(vocab)} className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">Tahrirlash</button>
                             <button onClick={() => handleDelete(vocab.id)} className="text-rose-600 hover:text-rose-900 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">O'chirish</button>
@@ -512,7 +528,7 @@ export default function VocabularyManagement() {
                   <select value={formData.word_level} onChange={(e)=>setFormData({...formData, word_level: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition">
                     <option value="">Tanlanmagan</option>
                     <option value="A1">A1</option><option value="A2">A2</option><option value="B1">B1</option>
-                    <option value="B2">B2</option><option type="C1">C1</option><option value="C2">C2</option>
+                    <option value="B2">B2</option><option value="C1">C1</option><option value="C2">C2</option>
                   </select>
                 </div>
                 <div>
