@@ -121,12 +121,13 @@ export default function App() {
   };
 
   // 3. DELETE LESSON
-  const handleDeleteLesson = async (lessonId) => {
+const handleDeleteLesson = async (lessonId) => {
     if (!window.confirm("Are you sure you want to delete this lesson?")) return;
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch(`https://vocabulary-game.duckdns.org/api/lessons?lessonId=${lessonId}`, {
+      // ?lessonId= o'rniga to'g'ridan-to'g'ri /${lessonId} yoziladi
+      const response = await fetch(`https://vocabulary-game.duckdns.org/api/lessons/${lessonId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
