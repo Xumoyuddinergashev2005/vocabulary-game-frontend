@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import UserManagement from "./UserManagement";
 import VocabularyManagement from "./VocabularyManagement";
 import AdminTestHistory from "./services/AdminTestHistory"; 
-import LessonManagement from "./LessonManagement"; // Yangi ajratilgan komponentimiz
-import Dashboard from "./Dashboard"; // <-- 1. Dashboard komponentini shu yerga import qilamiz (fayl nomini o'zingiznikiga moslab qo'yasiz, masalan ./Dashboard)
+import LessonManagement from "./LessonManagement";
+import Dashboard from "./Dashboard";
+import MyAnswersPage from "./MyAnswersPage"; // <-- 1. MyAnswersPage import qilindi
+import AdminAnswersPage from "./AdminAnswersPage"; // <-- 2. AdminAnswersPage import qilindi
 
 export default function App() {
   const [step, setStep] = useState('register'); 
@@ -148,6 +150,10 @@ export default function App() {
                   <li onClick={() => { setAdminTab('words'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'words' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>🔤</span> <span>Vocabulary Words</span></li>
                   <li onClick={() => { setAdminTab('users'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'users' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>👥</span> <span>User Management</span></li>
                   <li onClick={() => { setAdminTab('tests-history'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'tests-history' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>📝</span> <span>Test History</span></li>
+                  
+                  {/* --- YANGI MENYU ELEMENTLARI --- */}
+                  <li onClick={() => { setAdminTab('my-answers'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'my-answers' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>📖</span> <span>My Answers</span></li>
+                  <li onClick={() => { setAdminTab('admin-answers'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'admin-answers' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>🛡️</span> <span>User Answers (Admin)</span></li>
                 </ul>
               </div>
             </nav>
@@ -260,7 +266,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* --- 2. Dashboard / Reyting Jadvalini shu yerga ulab qo'yamiz --- */}
             <Dashboard setStep={setStep} />
           </div>
         )}
@@ -283,6 +288,16 @@ export default function App() {
         {/* --- ADMIN TEST HISTORY COMPONENT --- */}
         {step === 'dashboard' && adminTab === 'tests-history' && (
           <AdminTestHistory />
+        )}
+
+        {/* --- MY ANSWERS COMPONENT --- */}
+        {step === 'dashboard' && adminTab === 'my-answers' && (
+          <MyAnswersPage />
+        )}
+
+        {/* --- ADMIN ANSWERS COMPONENT --- */}
+        {step === 'dashboard' && adminTab === 'admin-answers' && (
+          <AdminAnswersPage />
         )}
 
       </main>

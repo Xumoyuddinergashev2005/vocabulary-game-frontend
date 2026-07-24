@@ -126,8 +126,8 @@ export default function UserManagement() {
   const openEditModal = (user) => {
     setSelectedUser(user);
     setEditForm({
-      firstName: user.first_name || '',
-      lastName: user.last_name || '',
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
       email: user.email || ''
     });
     setShowEditModal(true);
@@ -136,7 +136,6 @@ export default function UserManagement() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Backend kutayotgan snake_case formatidagi payload
       const payload = {
         first_name: editForm.firstName.trim(),
         last_name: editForm.lastName.trim(),
@@ -255,6 +254,7 @@ export default function UserManagement() {
                   <tr className="bg-gray-50/75 text-gray-500 uppercase text-xs tracking-wider border-b border-gray-100">
                     <th className="p-4 font-semibold">Foydalanuvchi</th>
                     <th className="p-4 font-semibold">Email</th>
+                    <th className="p-4 font-semibold">Ball (Score)</th>
                     <th className="p-4 font-semibold">Rol</th>
                     <th className="p-4 font-semibold">Status</th>
                     <th className="p-4 font-semibold text-center">Amallar</th>
@@ -263,15 +263,19 @@ export default function UserManagement() {
                 <tbody className="text-sm text-gray-700 divide-y divide-gray-100">
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="text-center py-12 text-gray-400 font-medium">Foydalanuvchilar topilmadi.</td>
+                      <td colSpan="6" className="text-center py-12 text-gray-400 font-medium">Foydalanuvchilar topilmadi.</td>
                     </tr>
                   ) : users.map((u) => (
                     <tr key={u.id} className="hover:bg-indigo-50/30 transition-colors">
-                      {/* Birlashtirilgan First Name va Last Name */}
                       <td className="p-4 font-semibold text-gray-900">
-                        {u.first_name} {u.last_name}
+                        {u.firstName || u.first_name} {u.lastName || u.last_name}
                       </td>
                       <td className="p-4 text-gray-600">{u.email}</td>
+                      <td className="p-4">
+                     <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-xl text-xs font-bold">
+                           ⭐ {u.total_score ?? 0} ball
+                           </span>
+                      </td>
                       <td className="p-4">
                         <select 
                           value={u.role}

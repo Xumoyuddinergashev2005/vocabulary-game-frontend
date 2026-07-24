@@ -16,12 +16,10 @@ export default function UserTestFlow({ lessonId }) {
     const initSession = async () => {
       setLoading(true);
       try {
-        // Backenddagi yangi startTest metodi IN_PROGRESS sessiyani qaytaradi yoki yangisini ochadi
         const data = await testService.startTest(lessonId);
         setSession(data);
         const sessionId = data.sessionId || data.session_id || data.id;
         
-        // Agar test allaqachon tugagan bo'lsa natijani olamiz, aks holda joriy savol
         if (data.status === "COMPLETED") {
           const resData = await testService.getResult(sessionId);
           setResult(resData);
@@ -49,7 +47,6 @@ export default function UserTestFlow({ lessonId }) {
     }
   };
 
-  // Variantni bosishi bilanoq avtomatik javob yuborish logikasi
   const handleOptionSelect = async (optId) => {
     if (!currentQuestion || loading || feedback !== null) return;
     
@@ -67,7 +64,6 @@ export default function UserTestFlow({ lessonId }) {
         selectedId: optId
       });
 
-      // 1.2 soniya natijani ko'rsatib turib, keyingi savolga o'tamiz
       setTimeout(async () => {
         setFeedback(null);
         setSelectedOptId(null);
@@ -121,13 +117,40 @@ export default function UserTestFlow({ lessonId }) {
   }
 
   if (result) {
+    const correctCount = result.correctAnswers ?? result.correct_answers ?? 0;
+    const wrongCount = result.wrongAnswers ?? result.wrong_answers ?? 0;
+    const totalCount = result.totalQuestions ?? result.total_questions ?? 0;
+    const earnedScoreVal = result.earnedScore ?? result.earned_score ?? 0;
+    const attemptTypeVal = result.attemptType ?? result.attempt_type ?? '';
+    const finishedAtVal = result.finishedAt ?? result.finished_at;
+
     return (
       <div className="p-6 text-center space-y-4">
         <h3 className="text-xl font-bold text-[#1E1B3A]">🎉 Test Yakunlandi!</h3>
         <div className="bg-[#F8F7FF] p-6 rounded-xl border border-[#E8DEFF] space-y-3">
-          <p className="text-base">To'g'ri javoblar: <span className="font-bold text-green-600 text-lg">{result.correct_answers || result.correctAnswers || 0}</span> / {result.total_questions || result.totalQuestions}</p>
-          <p className="text-base">To'plangan ball: <span className="font-bold text-[#5B3DF5] text-lg">{result.earned_score || result.earnedScore || 0}</span></p>
-          <p className="text-sm text-gray-500 mt-2">Urinish turi: {result.attempt_type || result.attemptType}</p>
+          <p className="text-base">
+            To'g'ri javoblar: <span className="font-bold text-green-600 text-lg">{correctCount}</span> / {totalCount}
+          </p>
+          <p className="text-base">
+            Noto'g'ri javoblar: <span className="font-bold text-red-500 text-lg">{wrongCount}</span>
+          </p>
+          <p className="text-base">
+            To'plangan ball: <span className="font-bold text-[#5B3DF5] text-lg">{earnedScoreVal}</span>
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Urinish turi: {attemptTypeVal}
+          </p>
+          {finishedAtVal && (
+            <p className="text-xs text-[#6B6B6F] pt-3 border-t border-[#E8DEFF]">
+              Tugatilgan vaqt: {new Date(finishedAtVal).toLocaleString('uz-UZ', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -135,7 +158,6 @@ export default function UserTestFlow({ lessonId }) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Yuqori sarlavha paneli */}
       <div className="flex justify-between items-center border-b pb-3 border-[#E8DEFF]">
         <h3 className="font-bold text-base text-[#1E1B3A]">Vocabulary Test</h3>
         {currentQuestion && (
@@ -147,12 +169,10 @@ export default function UserTestFlow({ lessonId }) {
 
       {currentQuestion ? (
         <div className="space-y-5">
-          {/* Savol matni */}
           <h4 className="font-bold text-2xl text-center text-gray-800 py-4">
             {currentQuestion.russianWord || currentQuestion.russian_word || "Savol topilmadi"}
           </h4>
           
-          {/* Variantlar ro'yxati */}
           <div className="space-y-3">
             {(currentQuestion.options || []).map((option) => {
               const optId = option.optionId || option.option_id || option.id;
@@ -182,7 +202,6 @@ export default function UserTestFlow({ lessonId }) {
             })}
           </div>
 
-          {/* Pastki boshqaruv tugmasi (Faqat skip qoldi) */}
           <div className="flex justify-start pt-4 border-t border-gray-100">
             <button 
               onClick={handleSkip} 

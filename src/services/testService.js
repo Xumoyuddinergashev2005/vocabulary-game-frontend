@@ -12,7 +12,6 @@ export const testService = {
     return response.json();
   },
 
-  // Darsning aktiv (IN_PROGRESS) sessiyasini tekshirish uchun qo'shildi
   getActiveSession: async (lessonId) => {
     const token = localStorage.getItem('token');
     const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/${lessonId}/active`, {
@@ -98,6 +97,81 @@ export const testService = {
       }
     });
     if (!response.ok) throw new Error('Failed to fetch history');
+    return response.json();
+  },
+
+  // Mening javoblarim (lessonId orqali filterlanadi)
+  getMyAnswers: async (params) => {
+    const token = localStorage.getItem('token');
+    const queryParams = {};
+    if (params.lessonId) queryParams.lessonId = params.lessonId;
+    if (params.isCorrect !== '' && params.isCorrect !== undefined && params.isCorrect !== null) {
+      queryParams.isCorrect = params.isCorrect;
+    }
+    if (params.page !== undefined) queryParams.page = params.page;
+    if (params.size !== undefined) queryParams.size = params.size;
+
+    const query = new URLSearchParams(queryParams).toString();
+    const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/my-answers?${query}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) throw new Error('Failed to fetch my answers');
+    return response.json();
+  },
+
+  // Admin uchun javoblar (lessonId va userId orqali filterlanadi)
+  getAdminUserAnswers: async (params) => {
+    const token = localStorage.getItem('token');
+    const queryParams = {};
+    if (params.userId) queryParams.userId = params.userId;
+    if (params.lessonId) queryParams.lessonId = params.lessonId;
+    if (params.isCorrect !== '' && params.isCorrect !== undefined && params.isCorrect !== null) {
+      queryParams.isCorrect = params.isCorrect;
+    }
+    if (params.page !== undefined) queryParams.page = params.page;
+    if (params.size !== undefined) queryParams.size = params.size;
+
+    const query = new URLSearchParams(queryParams).toString();
+    const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/admin/user-answers?${query}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) throw new Error('Failed to fetch admin user answers');
+    return response.json();
+  },
+
+  // Darslar ro'yxatini olish (Dropdown uchun)
+  getLessons: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch('https://vocabulary-game.duckdns.org/api/lessons', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) throw new Error('Failed to fetch lessons');
+    return response.json();
+  },
+
+  // Admin uchun foydalanuvchilar ro'yxatini olish (Dropdown uchun)
+  getUsersList: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch('https://vocabulary-game.duckdns.org/api/users', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) return [];
     return response.json();
   }
 };
