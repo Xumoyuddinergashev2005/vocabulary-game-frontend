@@ -6,6 +6,7 @@ export default function MyAnswersPage() {
     const [lessons, setLessons] = useState([]);
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0); // Jami elementlar soni uchun
     
     const [filterLessonId, setFilterLessonId] = useState('');
     const [filterIsCorrect, setFilterIsCorrect] = useState('');
@@ -31,8 +32,13 @@ export default function MyAnswersPage() {
                 page: page,
                 size: 10
             });
-            setAnswers(data.content || []);
-            setTotalPages(data.totalPages || 0);
+            
+            const contentList = data.content || (Array.isArray(data) ? data : []);
+            setAnswers(contentList);
+            
+            // Backenddan keladigan totalPages va totalElements'ni to'g'ri o'qish
+            setTotalPages(data.totalPages ?? data.total_pages ?? 1);
+            setTotalElements(data.totalElements ?? data.total_elements ?? contentList.length);
         } catch (error) {
             console.error("Xatolik yuz berdi:", error);
         }
@@ -51,21 +57,21 @@ export default function MyAnswersPage() {
             
             {/* Filterlar */}
             <div className="bg-white p-3 md:p-4 rounded-2xl border border-[#E8DEFF] shadow-sm flex flex-col sm:flex-row gap-3 items-center">
-         <select 
-    value={filterLessonId}
-    onChange={(e) => { setFilterLessonId(e.target.value); setPage(0); }}
-    className="px-3 py-2 border border-[#E8DEFF] rounded-lg text-sm w-full sm:w-72 focus:outline-none focus:border-[#5B3DF5] bg-white text-[#1E1B3A]"
->
-    <option value="">📚 Barcha darslar</option>
-    {lessons.map((lesson) => {
-        const lessonTitle = lesson.name || lesson.title || lesson.lessonName || lesson.lesson_name || `Dars #${lesson.id}`;
-        return (
-            <option key={lesson.id} value={lesson.id} className="text-[#1E1B3A] bg-white">
-                {lessonTitle}
-            </option>
-        );
-    })}
-</select>
+                <select 
+                    value={filterLessonId}
+                    onChange={(e) => { setFilterLessonId(e.target.value); setPage(0); }}
+                    className="px-3 py-2 border border-[#E8DEFF] rounded-lg text-sm w-full sm:w-72 focus:outline-none focus:border-[#5B3DF5] bg-white text-[#1E1B3A]"
+                >
+                    <option value="">📚 Barcha darslar</option>
+                    {lessons.map((lesson) => {
+                        const lessonTitle = lesson.name || lesson.title || lesson.lessonName || lesson.lesson_name || `Dars #${lesson.id}`;
+                        return (
+                            <option key={lesson.id} value={lesson.id} className="text-[#1E1B3A] bg-white">
+                                {lessonTitle}
+                            </option>
+                        );
+                    })}
+                </select>
 
                 <select 
                     value={filterIsCorrect}
@@ -81,7 +87,7 @@ export default function MyAnswersPage() {
             {/* Jadval */}
             <div className="bg-white rounded-2xl border border-[#E8DEFF] shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[500px]">
                         <thead>
                             <tr className="bg-[#F8F7FF] text-[#6B6B6F] text-xs uppercase tracking-wider border-b border-[#E8DEFF]">
                                 <th className="p-3 md:p-4 font-semibold">Dars nomi</th>
@@ -120,25 +126,28 @@ export default function MyAnswersPage() {
                     </table>
                 </div>
 
-                {totalPages > 1 && (
-                    <div className="p-3 md:p-4 border-t border-[#E8DEFF] flex justify-between items-center bg-[#F8F7FF]">
-                        <button 
-                            disabled={page === 0}
-                            onClick={() => setPage(p => Math.max(p - 1, 0))}
-                            className="px-3 md:px-4 py-2 bg-white border border-[#E8DEFF] rounded-lg text-xs md:text-sm font-semibold text-[#1E1B3A] disabled:opacity-40"
-                        >
-                            Oldingi
-                        </button>
-                        <span className="text-xs text-[#6B6B6F]">Sahifa {page + 1} / {totalPages}</span>
-                        <button 
-                            disabled={page + 1 >= totalPages}
-                            onClick={() => setPage(p => p + 1)}
-                            className="px-3 md:px-4 py-2 bg-[#5B3DF5] text-white rounded-lg text-xs md:text-sm font-semibold disabled:opacity-40"
-                        >
-                            Keyingi
-                        </button>
-                    </div>
-                )}
+                {/* --- PAGINATION (PC va Phone uchun mukammal moslashtirilgan) --- */}
+                <div className="p-3 md:p-4 border-t border-[#E8DEFF] flex flex-col sm:flex-row justify-between items-center gap-3 bg-[#F8F7FF]">
+                    <button 
+                        disabled={page === 0}
+                        onClick={() => setPage(p => Math.max(p - 1, 0))}
+                        className="w-full sm:w-auto px-4 py-2 bg-white border border-[#E8DEFF] rounded-lg text-xs md:text-sm font-semibold text-[#1E1B3A] disabled:opacity-40 hover:bg-gray-50 transition"
+                    >
+                        Oldingi
+                    </button>
+                    
+                    <span className="text-xs text-[#6B6B6F] text-center font-medium">
+                        Sahifa {page + 1} / {totalPages || 1} (Jami: {totalElements} ta yozuv)
+                    </span>
+                    
+                    <button 
+                        disabled={page + 1 >= totalPages || totalPages === 0}
+                        onClick={() => setPage(p => p + 1)}
+                        className="w-full sm:w-auto px-4 py-2 bg-[#5B3DF5] text-white rounded-lg text-xs md:text-sm font-semibold disabled:opacity-40 hover:bg-[#4a2fe0] transition"
+                    >
+                        Keyingi
+                    </button>
+                </div>
             </div>
 
             {/* Modal */}

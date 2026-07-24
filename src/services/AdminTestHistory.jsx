@@ -6,8 +6,15 @@ export default function AdminTestHistory() {
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Pagination uchun state'lar
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
   // Batafsil ko'rish uchun modal state'i
   const [selectedSession, setSelectedSession] = useState(null);
+
+  // Qaysi qator uchun o'chirish tasdiqi chiqib turganini saqlash uchun state
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   // Backenddagi @RequestParam nomlariga moslangan filtrlar (camelCase)
   const [filters, setFilters] = useState({
@@ -47,7 +54,7 @@ export default function AdminTestHistory() {
     fetchLessons();
   }, []);
 
-  // Filtrlar o'zgarganda avtomatik ma'lumotni yuklash
+  // Filtrlar yoki sahifa o'zgarganda avtomatik ma'lumotni yuklash
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       loadHistory();
@@ -69,7 +76,27 @@ export default function AdminTestHistory() {
     try {
       setLoading(true);
       const data = await testService.getTestHistory(filters);
-      setHistory(data.content || data);
+      
+      let historyList = [];
+      let pages = 1;
+      let elements = 0;
+
+      if (Array.isArray(data)) {
+        // Agar backend barcha ma'lumotni bitta array qilib qaytarsa, frontendda pagination qilamiz
+        elements = data.length;
+        pages = Math.ceil(elements / filters.size) || 1;
+        const startIndex = filters.page * filters.size;
+        historyList = data.slice(startIndex, startIndex + filters.size);
+      } else {
+        // Agar backend Page object (Spring Page) qaytarsa
+        historyList = data.content || data.data || [];
+        pages = data.totalPages ?? data.total_pages ?? data.pages ?? 1;
+        elements = data.totalElements ?? data.total_elements ?? data.total ?? historyList.length;
+      }
+
+      setHistory(historyList);
+      setTotalPages(pages);
+      setTotalElements(elements);
     } catch (err) {
       console.error(err);
       showStatus('Ma\'lumotlarni yuklashda xatolik yuz berdi.', true);
@@ -86,8 +113,6 @@ export default function AdminTestHistory() {
 
   // Test tarixini o'chirish funksiyasi
   const handleDeleteSession = async (sessionId) => {
-    if (!window.confirm("Haqiqatan ham ushbu test tarixini o'chirmoqchimisiz?")) return;
-
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`https://vocabulary-game.duckdns.org/api/tests/history/${sessionId}`, {
@@ -106,12 +131,14 @@ export default function AdminTestHistory() {
       }
     } catch (err) {
       showStatus('Server bilan aloqa uzildi.', true);
+    } finally {
+      setDeleteConfirmId(null);
     }
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto bg-gray-50 min-h-screen space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Test Tarixi</h1>
           <p className="text-sm text-gray-500">Barcha foydalanuvchilarning test natijalari va kengaytirilgan filtrlar</p>
@@ -119,90 +146,97 @@ export default function AdminTestHistory() {
       </div>
 
       {/* --- FILTRLAR PANELI --- */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Qidirish (Dars nomi bo'yicha) */}
-        <input
-          type="text"
-          placeholder="Dars nomi bo'yicha qidirish..."
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
-          value={filters.search}
-          onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 0 })}
-        />
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
+        <div>
+          <label className="block text-[10px] text-gray-400 font-semibold mb-1">Qidirish:</label>
+          <input
+            type="text"
+            placeholder="Dars nomi bo'yicha qidirish..."
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            value={filters.search}
+            onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 0 })}
+          />
+        </div>
 
-        {/* Dars bo'yicha filter (lessonId) */}
-        <select
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
-          value={filters.lessonId}
-          onChange={(e) => setFilters({ ...filters, lessonId: e.target.value, page: 0 })}
-        >
-          <option value="">📚 Barcha darslar</option>
-          {lessons.map((l) => {
-            const lessonIdVal = l.lesson_id || l.lessonId || l.id;
-            const lessonNameVal = l.lesson_name || l.lessonName || l.title || l.name || `Dars #${lessonIdVal}`;
-            return (
-              <option key={lessonIdVal} value={lessonIdVal}>
-                {lessonNameVal}
-              </option>
-            );
-          })}
-        </select>
+        <div>
+          <label className="block text-[10px] text-gray-400 font-semibold mb-1">Dars:</label>
+          <select
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            value={filters.lessonId}
+            onChange={(e) => setFilters({ ...filters, lessonId: e.target.value, page: 0 })}
+          >
+            <option value="">📚 Barcha darslar</option>
+            {lessons.map((l) => {
+              const lessonIdVal = l.lesson_id || l.lessonId || l.id;
+              const lessonNameVal = l.lesson_name || l.lessonName || l.title || l.name || `Dars #${lessonIdVal}`;
+              return (
+                <option key={lessonIdVal} value={lessonIdVal}>
+                  {lessonNameVal}
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
-        {/* Status bo'yicha filter */}
-        <select
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
-          value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 0 })}
-        >
-          <option value="">🎯 Barcha holatlar</option>
-          <option value="COMPLETED">COMPLETED (Tugallangan)</option>
-          <option value="IN_PROGRESS">IN_PROGRESS (Jarayonda)</option>
-        </select>
+        <div>
+          <label className="block text-[10px] text-gray-400 font-semibold mb-1">Holati:</label>
+          <select
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 0 })}
+          >
+            <option value="">🎯 Barcha holatlar</option>
+            <option value="COMPLETED">COMPLETED (Tugallangan)</option>
+            <option value="IN_PROGRESS">IN_PROGRESS (Jarayonda)</option>
+          </select>
+        </div>
 
-        {/* Min ball (minScore) */}
-        <input
-          type="number"
-          placeholder="Min ball"
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
-          value={filters.minScore}
-          onChange={(e) => setFilters({ ...filters, minScore: e.target.value, page: 0 })}
-        />
+        <div>
+          <label className="block text-[10px] text-gray-400 font-semibold mb-1">Min ball:</label>
+          <input
+            type="number"
+            placeholder="Min ball"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            value={filters.minScore}
+            onChange={(e) => setFilters({ ...filters, minScore: e.target.value, page: 0 })}
+          />
+        </div>
 
-        {/* Max ball (maxScore) */}
-        <input
-          type="number"
-          placeholder="Max ball"
-          className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
-          value={filters.maxScore}
-          onChange={(e) => setFilters({ ...filters, maxScore: e.target.value, page: 0 })}
-        />
+        <div>
+          <label className="block text-[10px] text-gray-400 font-semibold mb-1">Max ball:</label>
+          <input
+            type="number"
+            placeholder="Max ball"
+            className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            value={filters.maxScore}
+            onChange={(e) => setFilters({ ...filters, maxScore: e.target.value, page: 0 })}
+          />
+        </div>
 
-        {/* Boshlanish sanasi (fromDate) */}
         <div className="flex flex-col">
           <label className="text-[10px] text-gray-400 font-semibold mb-1">Dan (Sana va vaqt):</label>
           <input
             type="datetime-local"
-            className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
             value={filters.fromDate}
             onChange={(e) => setFilters({ ...filters, fromDate: e.target.value, page: 0 })}
           />
         </div>
 
-        {/* Tugash sanasi (toDate) */}
         <div className="flex flex-col">
           <label className="text-[10px] text-gray-400 font-semibold mb-1">Gacha (Sana va vaqt):</label>
           <input
             type="datetime-local"
-            className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#5B3DF5]"
             value={filters.toDate}
             onChange={(e) => setFilters({ ...filters, toDate: e.target.value, page: 0 })}
           />
         </div>
 
-        {/* Filtrlarni tozalash tugmasi */}
-        <div className="flex items-end">
+        <div>
           <button
             onClick={() => setFilters({ search: '', lessonId: '', status: '', minScore: '', maxScore: '', fromDate: '', toDate: '', page: 0, size: 10 })}
-            className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl text-sm transition"
+            className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold rounded-xl text-sm transition h-[38px]"
           >
             Filtrni tozalash
           </button>
@@ -211,7 +245,7 @@ export default function AdminTestHistory() {
 
       {/* Status xabarlari */}
       {message && (
-        <div className={`p-4 mb-6 rounded-xl text-sm font-medium shadow-sm transition-all flex items-center gap-3 ${
+        <div className={`p-4 rounded-xl text-sm font-medium shadow-sm transition-all flex items-center gap-3 ${
           isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
         }`}>
           <span>{message}</span>
@@ -220,13 +254,13 @@ export default function AdminTestHistory() {
 
       {/* --- ASOSIY JADVAL --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[650px]">
           <thead>
             <tr className="bg-gray-50/50 border-b border-gray-100 text-gray-500 text-xs uppercase tracking-wider">
               <th className="p-4 font-semibold">Foydalanuvchi</th>
               <th className="p-4 font-semibold">Dars Nomi</th>
               <th className="p-4 font-semibold">Natija (To'g'ri / Umumiy)</th>
-              <th className="p-4 font-semibold text-center">Amallar</th>
+              <th className="p-4 font-semibold text-center min-w-[180px]">Amallar</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 text-sm text-gray-700">
@@ -250,6 +284,8 @@ export default function AdminTestHistory() {
                 const totalQuestions = item.total_questions ?? item.totalQuestions ?? 0;
                 const earnedScore = item.score ?? item.earned_score ?? item.earnedScore ?? 0;
 
+                const isConfirming = deleteConfirmId === sessionId;
+
                 return (
                   <tr key={sessionId} className="hover:bg-gray-50/80 transition">
                     <td className="p-4 font-medium text-gray-900">{fullName}</td>
@@ -260,20 +296,39 @@ export default function AdminTestHistory() {
                         {earnedScore} ball
                       </span>
                     </td>
-                    <td className="p-4 text-center space-x-2">
-                      <button
-                        onClick={() => setSelectedSession(item)}
-                        className="text-[#5B3DF5] hover:bg-[#5B3DF5]/10 font-medium text-xs bg-[#5B3DF5]/5 px-3 py-1.5 rounded-lg transition"
-                      >
-                        Batafsil
-                      </button>
+                    <td className="p-4 text-center">
+                      {isConfirming ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleDeleteSession(sessionId)}
+                            className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg transition"
+                          >
+                            Ha
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-xs px-3 py-1.5 rounded-lg transition"
+                          >
+                            Bekor qilish
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedSession(item)}
+                            className="text-[#5B3DF5] hover:bg-[#5B3DF5]/10 font-medium text-xs bg-[#5B3DF5]/5 px-3 py-1.5 rounded-lg transition"
+                          >
+                            Batafsil
+                          </button>
 
-                      <button
-                        onClick={() => handleDeleteSession(sessionId)}
-                        className="text-rose-600 hover:bg-rose-100 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded-lg transition"
-                      >
-                        O'chirish
-                      </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(sessionId)}
+                            className="text-rose-600 hover:bg-rose-100 font-medium text-xs bg-rose-50 px-3 py-1.5 rounded-lg transition"
+                          >
+                            O'chirish
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -281,6 +336,27 @@ export default function AdminTestHistory() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* --- PAGINATION CONTROLS --- */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+        <button
+          onClick={() => setFilters(prev => ({ ...prev, page: Math.max(prev.page - 1, 0) }))}
+          disabled={filters.page === 0}
+          className="w-full sm:w-auto px-4 py-2 text-xs font-semibold bg-gray-100 text-gray-700 rounded-xl disabled:opacity-40 hover:bg-gray-200 transition"
+        >
+          Oldingi
+        </button>
+        <span className="text-xs text-gray-600 font-medium text-center">
+          Sahifa {filters.page + 1} / {totalPages || 1} (Jami: {totalElements} ta yozuv)
+        </span>
+        <button
+          onClick={() => setFilters(prev => ({ ...prev, page: Math.min(prev.page + 1, totalPages - 1) }))}
+          disabled={filters.page >= totalPages - 1 || totalPages === 0}
+          className="w-full sm:w-auto px-4 py-2 text-xs font-semibold bg-gray-100 text-gray-700 rounded-xl disabled:opacity-40 hover:bg-gray-200 transition"
+        >
+          Keyingi
+        </button>
       </div>
 
       {/* --- MODAL --- */}

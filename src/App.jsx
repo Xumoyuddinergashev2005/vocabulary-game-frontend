@@ -4,8 +4,8 @@ import VocabularyManagement from "./VocabularyManagement";
 import AdminTestHistory from "./services/AdminTestHistory"; 
 import LessonManagement from "./LessonManagement";
 import Dashboard from "./Dashboard";
-import MyAnswersPage from "./MyAnswersPage"; // <-- 1. MyAnswersPage import qilindi
-import AdminAnswersPage from "./AdminAnswersPage"; // <-- 2. AdminAnswersPage import qilindi
+import MyAnswersPage from "./MyAnswersPage";
+import AdminAnswersPage from "./AdminAnswersPage";
 
 export default function App() {
   const [step, setStep] = useState('register'); 
@@ -22,11 +22,67 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
 
-  // Auto-Login tekshiruvi
+  // Foydalanuvchi ma'lumotlari uchun state
+  const [currentUser, setCurrentUser] = useState({ firstName: 'User', lastName: '', role: 'USER' });
+
+  // Backend'dan kelgan ma'lumotlarni va role ni xavfsiz o'qib beruvchi yordamchi funksiya
+  const parseUserData = (rawUser, email = '') => {
+    if (!rawUser) {
+      return {
+        firstName: email ? email.split('@')[0] : 'User',
+        lastName: '',
+        role: 'USER'
+      };
+    }
+    return {
+      firstName: rawUser.firstName || rawUser.first_name || rawUser.name || (email ? email.split('@')[0] : 'User'),
+      lastName: rawUser.lastName || rawUser.last_name || '',
+      // Backend'dagi UserInfo yoki UserResponse'dan keladigan role'ni birinchilardan bo'lib o'qiydi
+      role: rawUser.role || (Array.isArray(rawUser.roles) ? rawUser.roles[0] : rawUser.roles) || rawUser.userRole || 'USER'
+    };
+  };
+
+  // LocalStorage'dan foydalanuvchini yuklash
+  const loadUserData = () => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        setCurrentUser(parseUserData(parsed));
+      } catch (e) {
+        console.error("User parse error", e);
+      }
+    }
+  };
+
+  // Backend'dan /me (UserInfo) orqali ma'lumotlarni yangilab olish funksiyasi
+  const fetchUserInfo = async (token) => {
+    try {
+      const response = await fetch('https://vocabulary-game.duckdns.org/api/users/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const rawUser = await response.json();
+        const userData = parseUserData(rawUser);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setCurrentUser(userData);
+      }
+    } catch (error) {
+      console.error("Failed to fetch /me user info:", error);
+    }
+  };
+
+  // Auto-Login va /me so'rovini tekshiruvi
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       setStep('dashboard');
+      loadUserData();
+      fetchUserInfo(token); // Backenddagi /me (UserInfo) api ga so'rov yuborib rol va ma'lumotlarni sinxronlaydi
     }
   }, []);
 
@@ -77,8 +133,18 @@ export default function App() {
         if (token) {
           localStorage.setItem('token', token);
           if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+          
+          const rawUser = data.user || data.userInfo || data;
+          const userData = parseUserData(rawUser, loginData.email);
+          
+          localStorage.setItem('user', JSON.stringify(userData));
+          setCurrentUser(userData);
+
           setStep('dashboard');
           setAdminTab('dashboard');
+
+          // Login qilgandan keyin ham /me apisidan to'liq ma'lumotni tortib kelish
+          fetchUserInfo(token);
         } else {
           setIsError(true); 
           setMessage('Token field not found in response.');
@@ -123,6 +189,12 @@ export default function App() {
             <span className="text-xl">🎮</span>
             <span className="font-bold">Vocab Test</span>
           </div>
+          
+          <div className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-xl text-xs">
+            <span className="font-semibold">{currentUser.firstName}</span>
+            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-bold">{currentUser.role}</span>
+          </div>
+
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-2xl focus:outline-none">
             {isMobileMenuOpen ? '✕' : '☰'}
           </button>
@@ -136,9 +208,26 @@ export default function App() {
           w-full md:w-64 bg-[#5B3DF5] text-white flex flex-col justify-between p-6 shrink-0 transition-all duration-300
         `}>
           <div className="space-y-8">
-            <div className="hidden md:flex items-center space-x-2">
-              <span className="text-2xl">🎮</span>
-              <span className="text-xl font-bold tracking-wide">Vocab Test</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">🎮</span>
+                <span className="text-xl font-bold tracking-wide">Vocab Test</span>
+              </div>
+            </div>
+
+            {/* Foydalanuvchi ismi va roli */}
+            <div className="bg-white/10 border border-white/10 p-3 rounded-2xl flex items-center gap-3">
+              <div className="bg-white text-[#5B3DF5] p-2 rounded-xl font-bold text-sm">
+                👤
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold truncate">
+                  {currentUser.firstName} {currentUser.lastName}
+                </p>
+                <span className="inline-block mt-0.5 text-[10px] font-extrabold bg-white/20 px-2 py-0.5 rounded-full text-white tracking-wide">
+                  {currentUser.role}
+                </span>
+              </div>
             </div>
 
             <nav className="space-y-6">
@@ -150,8 +239,6 @@ export default function App() {
                   <li onClick={() => { setAdminTab('words'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'words' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>🔤</span> <span>Vocabulary Words</span></li>
                   <li onClick={() => { setAdminTab('users'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'users' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>👥</span> <span>User Management</span></li>
                   <li onClick={() => { setAdminTab('tests-history'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'tests-history' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>📝</span> <span>Test History</span></li>
-                  
-                  {/* --- YANGI MENYU ELEMENTLARI --- */}
                   <li onClick={() => { setAdminTab('my-answers'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'my-answers' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>📖</span> <span>My Answers</span></li>
                   <li onClick={() => { setAdminTab('admin-answers'); setIsMobileMenuOpen(false); }} className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer ${adminTab === 'admin-answers' ? 'bg-white/10 font-medium' : 'hover:bg-white/5'}`}><span>🛡️</span> <span>User Answers (Admin)</span></li>
                 </ul>
@@ -159,7 +246,7 @@ export default function App() {
             </nav>
           </div>
           
-          <button onClick={() => { localStorage.removeItem('token'); setStep('login'); }} className="flex items-center space-x-3 p-2 mt-6 rounded-lg text-red-200 hover:bg-white/5 text-sm">
+          <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setStep('login'); }} className="flex items-center space-x-3 p-2 mt-6 rounded-lg text-red-200 hover:bg-white/5 text-sm">
             <span>🚪</span> <span>Logout</span>
           </button>
         </aside>
@@ -173,6 +260,18 @@ export default function App() {
             isError ? 'bg-[#EF4444]/10 text-[#EF4444]' : 'bg-[#22C55E]/10 text-[#22C55E]'
           }`}>
             {message}
+          </div>
+        )}
+
+        {/* --- ORQAGA TUGMASI --- */}
+        {step === 'dashboard' && adminTab !== 'dashboard' && (
+          <div className="mb-4">
+            <button 
+              onClick={() => setAdminTab('dashboard')} 
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-[#E8DEFF] rounded-xl text-sm font-bold text-[#5B3DF5] hover:bg-[#5B3DF5] hover:text-white transition-all shadow-sm group"
+            >
+              <span className="transform group-hover:-translate-x-1 transition-transform">←</span> Orqaga (Dashboard)
+            </button>
           </div>
         )}
 

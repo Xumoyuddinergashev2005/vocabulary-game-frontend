@@ -28,9 +28,11 @@ export default function VocabularyManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   const [selectedVocabId, setSelectedVocabId] = useState(null);
   const [selectedVocab, setSelectedVocab] = useState(null); // Details uchun
+  const [vocabToDelete, setVocabToDelete] = useState(null); // O'chirish uchun
 
   const [formData, setFormData] = useState({
     russian_word: '',
@@ -67,14 +69,32 @@ export default function VocabularyManagement() {
   const fetchVocabularies = async () => {
     setLoading(true);
     try {
-      let queryParams = `page=${page}&size=${size}`;
-      if (filters.search) queryParams += `&search=${encodeURIComponent(filters.search)}`;
-      if (filters.lesson_id) queryParams += `&lesson_id=${filters.lesson_id}`;
-      if (filters.word_type) queryParams += `&word_type=${filters.word_type}`;
-      if (filters.word_level) queryParams += `&word_level=${filters.word_level}`;
-      if (filters.aspect) queryParams += `&aspect=${filters.aspect}`;
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString()
+      });
 
-      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/vocabularies?${queryParams}`);
+      if (filters.search) {
+        params.append('search', filters.search);
+      }
+      if (filters.lesson_id) {
+        params.append('lesson_id', filters.lesson_id);
+        params.append('lessonId', filters.lesson_id);
+      }
+      if (filters.word_type) {
+        params.append('word_type', filters.word_type);
+        params.append('wordType', filters.word_type);
+      }
+      if (filters.word_level) {
+        params.append('word_level', filters.word_level);
+        params.append('wordLevel', filters.word_level);
+      }
+      if (filters.aspect) {
+        params.append('aspect', filters.aspect);
+      }
+
+      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/vocabularies?${params.toString()}`);
+      
       if (res.ok) {
         const data = await res.json();
         setVocabularies(data.content || []);
@@ -82,6 +102,10 @@ export default function VocabularyManagement() {
         const tElements = data.total_elements !== undefined ? data.total_elements : (data.totalElements || 0);
         setTotalPages(tPages);
         setTotalElements(tElements);
+      } else if (res.status === 404) {
+        setVocabularies([]);
+        setTotalPages(0);
+        setTotalElements(0);
       } else {
         showStatus('So\'zlarni yuklashda xatolik yuz berdi.', true);
       }
@@ -183,22 +207,26 @@ export default function VocabularyManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Haqiqatan ham ushbu so'zni o'chirmoqchimisiz?")) return;
+  const confirmDelete = async () => {
+    if (!vocabToDelete) return;
     try {
-      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/vocabularies/${id}`, {
+      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/vocabularies/${vocabToDelete.id}`, {
         method: 'DELETE'
       });
       
       if (res.ok) {
         showStatus('So\'z muvaffaqiyatli o\'chirib tashlandi.');
+        setShowDeleteModal(false);
+        setVocabToDelete(null);
         fetchVocabularies();
       } else {
         const errData = await res.json().catch(() => ({}));
         showStatus(errData.message || 'O\'chirishda xatolik yuz berdi.', true);
+        setShowDeleteModal(false);
       }
     } catch (err) {
       showStatus('Server bilan aloqa uzildi.', true);
+      setShowDeleteModal(false);
     }
   };
 
@@ -234,6 +262,11 @@ export default function VocabularyManagement() {
   const openDetailsModal = (vocab) => {
     setSelectedVocab(vocab);
     setShowDetailsModal(true);
+  };
+
+  const openDeleteModal = (vocab) => {
+    setVocabToDelete(vocab);
+    setShowDeleteModal(true);
   };
 
   return (
@@ -285,7 +318,10 @@ export default function VocabularyManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Darslar</label>
             <select 
               value={filters.lesson_id} 
-              onChange={(e) => { setPage(0); setFilters({...filters, lesson_id: e.target.value}); }}
+              onChange={(e) => { 
+                setFilters(prev => ({ ...prev, lesson_id: e.target.value }));
+                setPage(0); 
+              }}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             >
               <option value="">Barcha darslar</option>
@@ -296,7 +332,10 @@ export default function VocabularyManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">So'z Turi</label>
             <select 
               value={filters.word_type} 
-              onChange={(e) => { setPage(0); setFilters({...filters, word_type: e.target.value}); }}
+              onChange={(e) => { 
+                setFilters(prev => ({ ...prev, word_type: e.target.value }));
+                setPage(0); 
+              }}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             >
               <option value="">Barcha turlar</option>
@@ -310,7 +349,10 @@ export default function VocabularyManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Daraja (Level)</label>
             <select 
               value={filters.word_level} 
-              onChange={(e) => { setPage(0); setFilters({...filters, word_level: e.target.value}); }}
+              onChange={(e) => { 
+                setFilters(prev => ({ ...prev, word_level: e.target.value }));
+                setPage(0); 
+              }}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             >
               <option value="">Barcha darajalar</option>
@@ -323,7 +365,10 @@ export default function VocabularyManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Aspect</label>
             <select 
               value={filters.aspect} 
-              onChange={(e) => { setPage(0); setFilters({...filters, aspect: e.target.value}); }}
+              onChange={(e) => { 
+                setFilters(prev => ({ ...prev, aspect: e.target.value }));
+                setPage(0); 
+              }}
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
             >
               <option value="">Barcha aspectlar</option>
@@ -333,7 +378,7 @@ export default function VocabularyManagement() {
           </div>
         </div>
 
-        {/* Ixchamlashtirilgan Jadval */}
+        {/* Jadval */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center py-16 text-indigo-600 font-medium gap-2">
@@ -371,7 +416,7 @@ export default function VocabularyManagement() {
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => openDetailsModal(vocab)} className="text-emerald-600 hover:text-emerald-900 font-semibold text-xs bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition">Batafsil</button>
                             <button onClick={() => openEditModal(vocab)} className="text-indigo-600 hover:text-indigo-900 font-semibold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">Tahrirlash</button>
-                            <button onClick={() => handleDelete(vocab.id)} className="text-rose-600 hover:text-rose-900 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">O'chirish</button>
+                            <button onClick={() => openDeleteModal(vocab)} className="text-rose-600 hover:text-rose-900 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">O'chirish</button>
                           </div>
                         </td>
                       </tr>
@@ -416,12 +461,10 @@ export default function VocabularyManagement() {
 
       </div>
 
-      {/* SO'Z TAFSILOTLARI MODALI (DETAILS MODAL) */}
+      {/* TAFSILOTLAR MODALI */}
       {showDetailsModal && selectedVocab && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 p-6 sm:p-8">
-            
-            {/* Modal Header */}
             <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-6">
               <div>
                 <span className="text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md uppercase tracking-wide">Lug'at kartasi</span>
@@ -438,10 +481,7 @@ export default function VocabularyManagement() {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="space-y-5">
-              
-              {/* Grammatika va Joylashuv metrikalari */}
               <div className="grid grid-cols-2 gap-4 bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">So'z turi</h4>
@@ -471,7 +511,6 @@ export default function VocabularyManagement() {
                 </div>
               </div>
 
-              {/* Misol Gap Bo'limi */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -497,10 +536,8 @@ export default function VocabularyManagement() {
                   )}
                 </div>
               </div>
-
             </div>
 
-            {/* Modal Yopish Tugmasi */}
             <div className="flex justify-end pt-6 mt-6 border-t border-gray-100">
               <button 
                 type="button" 
@@ -588,7 +625,7 @@ export default function VocabularyManagement() {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 animate-fadeIn">
           <div className="bg-white p-6 sm:p-8 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">So'zni Tahrirlash</h3>
+              <h3 className="text-xl font-bold text-gray-900">Lug'atni Tahrirlash</h3>
               <button onClick={() => { setShowEditModal(false); resetForm(); }} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-2 rounded-full">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
@@ -611,7 +648,7 @@ export default function VocabularyManagement() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Darsni o'zgartirish *</label>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Darsni tanlang *</label>
                   <select required value={formData.lesson_id} onChange={(e)=>setFormData({...formData, lesson_id: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition">
                     <option value="">-- Darsni tanlang --</option>
                     {lessons.map(l => <option key={l.id} value={l.id}>{l.lesson_name}</option>)}
@@ -645,9 +682,42 @@ export default function VocabularyManagement() {
               </div>
               <div className="flex justify-end gap-3 pt-4">
                 <button type="button" onClick={() => { setShowEditModal(false); resetForm(); }} className="px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold bg-white text-gray-700 hover:bg-gray-50 transition">Bekor qilish</button>
-                <button type="submit" className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 transition">Saqlash</button>
+                <button type="submit" className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-200 transition">Yangilash</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* O'CHIRISHNI TASDIQLASH MODALI */}
+      {showDeleteModal && vocabToDelete && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex justify-center items-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white p-6 sm:p-8 rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 text-center">
+            <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">So'zni o'chirish</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Haqiqatan ham <span className="font-bold text-gray-800">"{vocabToDelete.russian_word}"</span> so'zini o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button 
+                type="button" 
+                onClick={() => { setShowDeleteModal(false); setVocabToDelete(null); }} 
+                className="flex-1 px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold bg-white text-gray-700 hover:bg-gray-50 transition"
+              >
+                Bekor qilish
+              </button>
+              <button 
+                type="button" 
+                onClick={confirmDelete} 
+                className="flex-1 px-5 py-2.5 rounded-xl text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700 shadow-md shadow-rose-200 transition"
+              >
+                Ha, o'chirish
+              </button>
+            </div>
           </div>
         </div>
       )}
