@@ -4,30 +4,39 @@ import { testService } from "./testService";
 export default function UserTestFlow({ lessonId }) {
   const [session, setSession] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [selectedOption, setSelectedOption] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
-  // Javob to'g'ri yoki xatoligini vaqtincha saqlaydigan state
+  // Javob to'g'ri yoki xatoligini vaqtincha ko'rsatib turish uchun
   const [feedback, setFeedback] = useState(null);
+  const [selectedOptId, setSelectedOptId] = useState(null);
 
   useEffect(() => {
-    const startSession = async () => {
+    const initSession = async () => {
       setLoading(true);
       try {
+        // Backenddagi yangi startTest metodi IN_PROGRESS sessiyani qaytaradi yoki yangisini ochadi
         const data = await testService.startTest(lessonId);
         setSession(data);
-        const sessionId = data.session_id || data.id;
-        await fetchCurrentQuestion(sessionId);
+        const sessionId = data.sessionId || data.session_id || data.id;
+        
+        // Agar test allaqachon tugagan bo'lsa natijani olamiz, aks holda joriy savol
+        if (data.status === "COMPLETED") {
+          const resData = await testService.getResult(sessionId);
+          setResult(resData);
+        } else {
+          await fetchCurrentQuestion(sessionId);
+        }
       } catch (err) {
         setError("Testni boshlashda xatolik yuz berdi. Serverni tekshiring.");
       } finally {
         setLoading(false);
       }
     };
+
     if (lessonId) {
-      startSession();
+      initSession();
     }
   }, [lessonId]);
 
@@ -40,47 +49,52 @@ export default function UserTestFlow({ lessonId }) {
     }
   };
 
-  const handleAnswerSubmit = async () => {
-    if (!selectedOption || !currentQuestion) return;
-    setLoading(true);
+  // Variantni bosishi bilanoq avtomatik javob yuborish logikasi
+  const handleOptionSelect = async (optId) => {
+    if (!currentQuestion || loading || feedback !== null) return;
     
+    setSelectedOptId(optId);
+    setLoading(true);
+
     try {
-      const sessionId = session.session_id || session.id;
-      const questionId = currentQuestion.question_id || currentQuestion.id;
+      const sessionId = session.sessionId || session.session_id || session.id;
+      const questionId = currentQuestion.questionId || currentQuestion.question_id || currentQuestion.id;
       
-      const response = await testService.submitAnswer(sessionId, questionId, selectedOption);
+      const response = await testService.submitAnswer(sessionId, questionId, optId);
       
-      // Backend'dan kelgan 'correct' maydonini feedback'ga yozamiz
       setFeedback({
-        isCorrect: response.correct 
+        isCorrect: response.correct,
+        selectedId: optId
       });
 
-      // 1.5 soniya ranglarni ko'rsatib turib, keyin keyingi savolga o'tkazadi
+      // 1.2 soniya natijani ko'rsatib turib, keyingi savolga o'tamiz
       setTimeout(async () => {
         setFeedback(null);
-        
+        setSelectedOptId(null);
+
         if (response.finished) {
           const resData = await testService.getResult(sessionId);
           setResult(resData);
         } else {
           await fetchCurrentQuestion(sessionId);
-          setSelectedOption(null);
         }
         setLoading(false);
-      }, 1500);
+      }, 1200);
 
     } catch (err) {
       setError("Javobni yuborishda xatolik yuz berdi.");
       setLoading(false);
+      setFeedback(null);
+      setSelectedOptId(null);
     }
   };
 
   const handleSkip = async () => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || loading || feedback !== null) return;
     setLoading(true);
     try {
-      const sessionId = session.session_id || session.id;
-      const questionId = currentQuestion.question_id || currentQuestion.id;
+      const sessionId = session.sessionId || session.session_id || session.id;
+      const questionId = currentQuestion.questionId || currentQuestion.question_id || currentQuestion.id;
       
       const response = await testService.skipQuestion(sessionId, questionId);
       
@@ -89,7 +103,7 @@ export default function UserTestFlow({ lessonId }) {
         setResult(resData);
       } else {
         await fetchCurrentQuestion(sessionId);
-        setSelectedOption(null);
+        setSelectedOptId(null);
       }
     } catch (err) {
       setError("Savolni o'tkazib yuborishda xatolik yuz berdi.");
@@ -113,7 +127,7 @@ export default function UserTestFlow({ lessonId }) {
         <div className="bg-[#F8F7FF] p-6 rounded-xl border border-[#E8DEFF] space-y-3">
           <p className="text-base">To'g'ri javoblar: <span className="font-bold text-green-600 text-lg">{result.correct_answers || result.correctAnswers || 0}</span> / {result.total_questions || result.totalQuestions}</p>
           <p className="text-base">To'plangan ball: <span className="font-bold text-[#5B3DF5] text-lg">{result.earned_score || result.earnedScore || 0}</span></p>
-          <p className="text-sm text-gray-500 mt-2">Urinish turi: {result.attempt_type}</p>
+          <p className="text-sm text-gray-500 mt-2">Urinish turi: {result.attempt_type || result.attemptType}</p>
         </div>
       </div>
     );
@@ -126,7 +140,7 @@ export default function UserTestFlow({ lessonId }) {
         <h3 className="font-bold text-base text-[#1E1B3A]">Vocabulary Test</h3>
         {currentQuestion && (
            <span className="text-xs bg-[#5B3DF5]/10 text-[#5B3DF5] px-3 py-1.5 rounded-full font-semibold">
-             Savol: {currentQuestion.question_order || currentQuestion.question_index} / {session?.total_questions || '-'}
+             Savol: {currentQuestion.questionOrder || currentQuestion.question_order || currentQuestion.question_index} / {session?.totalQuestions || session?.total_questions || '-'}
            </span>
         )}
       </div>
@@ -135,32 +149,30 @@ export default function UserTestFlow({ lessonId }) {
         <div className="space-y-5">
           {/* Savol matni */}
           <h4 className="font-bold text-2xl text-center text-gray-800 py-4">
-            {currentQuestion.russian_word || "Savol topilmadi"}
+            {currentQuestion.russianWord || currentQuestion.russian_word || "Savol topilmadi"}
           </h4>
           
           {/* Variantlar ro'yxati */}
           <div className="space-y-3">
             {(currentQuestion.options || []).map((option) => {
-              const optId = option.option_id || option.id;
+              const optId = option.optionId || option.option_id || option.id;
               
               let buttonStyle = 'border-[#E8DEFF] hover:border-[#5B3DF5]/30 bg-white text-gray-700';
               
               if (feedback) {
-                // Javob tekshirilgandan so'ng rang berish
-                if (selectedOption === optId) {
+                if (feedback.selectedId === optId) {
                   buttonStyle = feedback.isCorrect 
                     ? 'border-green-500 bg-green-50 text-green-700 font-semibold' 
                     : 'border-red-500 bg-red-50 text-red-700 font-semibold';
                 }
-              } else if (selectedOption === optId) {
-                // Oddiy tanlangan holat ranggi
+              } else if (selectedOptId === optId) {
                 buttonStyle = 'border-[#5B3DF5] bg-[#5B3DF5]/5 text-[#5B3DF5] shadow-sm font-semibold';
               }
 
               return (
                 <button
                   key={optId}
-                  onClick={() => !feedback && setSelectedOption(optId)}
+                  onClick={() => handleOptionSelect(optId)}
                   disabled={loading || feedback !== null}
                   className={`w-full text-left p-4 rounded-xl border text-sm transition ${buttonStyle}`}
                 >
@@ -170,21 +182,14 @@ export default function UserTestFlow({ lessonId }) {
             })}
           </div>
 
-          {/* Pastki boshqaruv tugmalari */}
-          <div className="flex justify-between pt-6 border-t border-gray-100">
+          {/* Pastki boshqaruv tugmasi (Faqat skip qoldi) */}
+          <div className="flex justify-start pt-4 border-t border-gray-100">
             <button 
               onClick={handleSkip} 
               disabled={loading || feedback !== null}
               className="px-6 py-2.5 border border-[#E8DEFF] rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition"
             >
-              O'tkazib yuborish
-            </button>
-            <button 
-              onClick={handleAnswerSubmit} 
-              disabled={!selectedOption || loading || feedback !== null}
-              className="px-6 py-2.5 bg-[#5B3DF5] text-white rounded-xl text-sm font-semibold hover:bg-[#4a32d4] disabled:opacity-50 transition shadow-sm"
-            >
-              {loading && !feedback ? 'Tekshirilmoqda...' : 'Javobni tasdiqlash'}
+              O'tkazib yuborish (Skip)
             </button>
           </div>
         </div>

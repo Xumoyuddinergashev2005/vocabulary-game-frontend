@@ -18,7 +18,8 @@ export default function UserManagement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [editForm, setEditForm] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     email: ''
   });
 
@@ -42,8 +43,8 @@ export default function UserManagement() {
       if (filters.search) queryParams.append('search', filters.search);
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.role) queryParams.append('role', filters.role);
-      if (filters.fromDate) queryParams.append('fromDate', filters.fromDate);
-      if (filters.toDate) queryParams.append('toDate', filters.toDate);
+      if (filters.fromDate) queryParams.append('from_date', filters.fromDate);
+      if (filters.toDate) queryParams.append('to_date', filters.toDate);
 
       const res = await authFetch(`https://vocabulary-game.duckdns.org/api/users?${queryParams.toString()}`);
       if (res.ok) {
@@ -69,7 +70,6 @@ export default function UserManagement() {
     setTimeout(() => setMessage(''), 4000);
   };
 
-  // Statusni o'zgartirish (Block / Active)
   const handleStatusChange = async (userId, currentStatus) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
     try {
@@ -88,10 +88,9 @@ export default function UserManagement() {
     }
   };
 
-  // Rolni o'zgartirish
   const handleRoleChange = async (userId, newRole) => {
     try {
-      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/users/role?userId=${userId}&role=${newRole}`, {
+      const res = await authFetch(`https://vocabulary-game.duckdns.org/api/users/role?user_id=${userId}&role=${newRole}`, {
         method: 'PATCH'
       });
       if (res.ok) {
@@ -106,7 +105,6 @@ export default function UserManagement() {
     }
   };
 
-  // O'chirish
   const handleDelete = async (userId) => {
     if (!window.confirm("Haqiqatan ham bu foydalanuvchini o'chirmoqchimisiz?")) return;
     try {
@@ -128,19 +126,20 @@ export default function UserManagement() {
   const openEditModal = (user) => {
     setSelectedUser(user);
     setEditForm({
-      fullName: user.full_name || '',
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
       email: user.email || ''
     });
     setShowEditModal(true);
   };
 
-  // Tahrirlashni saqlash (Email o'zgarmasa yoki bo'sh qolsa xato bermaydigan qilib to'g'irlandi)
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Agar email kiritilmagan bo'lsa yoki o'sha eski email bo'lsa, backendga eski qiymatni yuboramiz
+      // Backend kutayotgan snake_case formatidagi payload
       const payload = {
-        fullName: editForm.fullName,
+        first_name: editForm.firstName.trim(),
+        last_name: editForm.lastName.trim(),
         email: editForm.email.trim() === '' ? selectedUser.email : editForm.email
       };
 
@@ -254,7 +253,7 @@ export default function UserManagement() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/75 text-gray-500 uppercase text-xs tracking-wider border-b border-gray-100">
-                    <th className="p-4 font-semibold">Full Name</th>
+                    <th className="p-4 font-semibold">Foydalanuvchi</th>
                     <th className="p-4 font-semibold">Email</th>
                     <th className="p-4 font-semibold">Rol</th>
                     <th className="p-4 font-semibold">Status</th>
@@ -268,7 +267,10 @@ export default function UserManagement() {
                     </tr>
                   ) : users.map((u) => (
                     <tr key={u.id} className="hover:bg-indigo-50/30 transition-colors">
-                      <td className="p-4 font-semibold text-gray-900">{u.full_name}</td>
+                      {/* Birlashtirilgan First Name va Last Name */}
+                      <td className="p-4 font-semibold text-gray-900">
+                        {u.first_name} {u.last_name}
+                      </td>
                       <td className="p-4 text-gray-600">{u.email}</td>
                       <td className="p-4">
                         <select 
@@ -333,14 +335,27 @@ export default function UserManagement() {
               </button>
             </div>
             <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Full Name</label>
-                <input 
-                  type="text" 
-                  value={editForm.fullName} 
-                  onChange={(e)=>setEditForm({...editForm, fullName: e.target.value})} 
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">First Name</label>
+                  <input 
+                    type="text" 
+                    value={editForm.firstName} 
+                    onChange={(e)=>setEditForm({...editForm, firstName: e.target.value})} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Last Name</label>
+                  <input 
+                    type="text" 
+                    value={editForm.lastName} 
+                    onChange={(e)=>setEditForm({...editForm, lastName: e.target.value})} 
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition"
+                    required
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Email</label>
@@ -349,6 +364,7 @@ export default function UserManagement() {
                   value={editForm.email} 
                   onChange={(e)=>setEditForm({...editForm, email: e.target.value})} 
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition"
+                  required
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4">

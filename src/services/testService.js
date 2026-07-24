@@ -12,6 +12,20 @@ export const testService = {
     return response.json();
   },
 
+  // Darsning aktiv (IN_PROGRESS) sessiyasini tekshirish uchun qo'shildi
+  getActiveSession: async (lessonId) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/${lessonId}/active`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) return null;
+    return response.json();
+  },
+
   getCurrentQuestion: async (sessionId) => {
     const token = localStorage.getItem('token');
     const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/${sessionId}/current-question`, {
@@ -75,7 +89,6 @@ export const testService = {
 
   getTestHistory: async (params) => {
     const token = localStorage.getItem('token');
-    // Parametrlarni URL ga qo'shish
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`https://vocabulary-game.duckdns.org/api/tests/history?${query}`, {
       method: 'GET',
